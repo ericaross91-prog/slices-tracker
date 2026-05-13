@@ -264,14 +264,15 @@ function doPost(e) {
       sheet.clearContents();
       const headers = ['id','business','businessType','address','zip','phone',
         'email','contact','title','mode','initDate','lastDate',
-        'sessionConfirmed','dateTime','volunteer','notes','target'];
+        'sessionConfirmed','dateTime','volunteer','notes','target','version'];
       sheet.appendRow(headers);
+      const ver = data.version || Date.now();
       data.rows.forEach(r => {
         sheet.appendRow([
           r.id, r.business, r.businessType||'', r.address, r.zip,
           r.phone, r.email, r.contact, r.title, r.mode,
           r.initDate, r.lastDate, r.sessionConfirmed,
-          r.dateTime, r.volunteer, r.notes, data.target||21
+          r.dateTime, r.volunteer, r.notes, data.target||21, ver
         ]);
       });
     }
@@ -305,10 +306,11 @@ function doGet(e) {
       headers.forEach((h,i) => { obj[h] = (row[i] === null || row[i] === undefined) ? '' : String(row[i]); });
       return obj;
     });
-    const target = rows.length ? (parseInt(rows[0].target) || 21) : 21;
-    rows.forEach(r => delete r.target);
+    const target  = rows.length ? (parseInt(rows[0].target)  || 21) : 21;
+    const version = rows.length ? (parseInt(rows[0].version) || 0)  : 0;
+    rows.forEach(r => { delete r.target; delete r.version; });
     return ContentService
-      .createTextOutput(callback + '(' + JSON.stringify({rows, target}) + ')')
+      .createTextOutput(callback + '(' + JSON.stringify({rows, target, version}) + ')')
       .setMimeType(ContentService.MimeType.JAVASCRIPT);
   } catch(err) {
     return ContentService
@@ -481,9 +483,14 @@ function doGet(e) {
 //  CONFIG
 // ════════════════════════════════════════════════════════
 const CAMPAIGN_END = new Date('2026-06-13T00:00:00'); // midnight after June 12
-const STORAGE_KEY  = 'slices_v11';  // v11: inputs replace contenteditable — bug permanently fixed  // v10: businessType column + filters + sync fix  // bumped to v9 — forces full reload of all 72 businesses + 2 sessions
+const STORAGE_KEY  = 'slices_v12';  // v12: timestamp-gated pull prevents delete/sync glitch
 const TARGET_KEY   = 'slices_target';
 const SHEET_KEY    = 'slices_sheet_url';
+
+// Tracks when data was last changed locally.
+// pullFromSheet will NOT overwrite local data if local is newer.
+let localVersion   = Date.now();
+let pullBlockUntil = 0;  // epoch ms — block all pulls until this time
 
 // ════════════════════════════════════════════════════════
 //  ADMIN SETUP — paste your Google Sheets URL here ONCE.
@@ -617,7 +624,11 @@ function loadLocal() {
   catch { return []; }
 }
 function saveLocal() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows)); }
+  try {
+    localVersion = Date.now();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    localStorage.setItem('slices_localVersion', localVersion);
+  }
   catch {}
 }
 
@@ -789,6 +800,7 @@ function onCellChange(e) {
     if (currentCount > bizCountBaseline) bizCountBaseline = currentCount;
   }
 
+  pullBlockUntil = Date.now() + 5000;
   saveLocal();
   renderDashboard();
   syncToSheet();
@@ -808,6 +820,7 @@ function onSelectChange(e) {
   else if (field === 'sessionConfirmed')sel.className = 'dd ' + vc(sel.value);
   else if (field === 'businessType')    sel.className = 'dd ' + btClass(sel.value);
 
+  pullBlockUntil = Date.now() + 5000;
   saveLocal();
   renderDashboard();
   syncToSheet();
@@ -841,6 +854,7 @@ function addRow() {
     sessionConfirmed:'', dateTime:'', volunteer:'', notes:''
   };
   rows.push(newRow);
+  pullBlockUntil = Date.now() + 5000;
   saveLocal();
 
   // Append a single new <tr> without touching existing rows
@@ -928,10 +942,15 @@ function closeDelModal() {
 document.getElementById('del-confirm-btn').addEventListener('click', function() {
   if (pendingDeleteId !== null) {
     rows = rows.filter(r => r.id !== pendingDeleteId);
-    // Recount baseline after delete
     bizCountBaseline = rows.filter(r => r.business.trim() !== '').length;
     closeDelModal();
-    render();
+    // Block incoming pulls for 5s so the Sheet write can land
+    // before any pull tries to overwrite with the pre-delete data
+    pullBlockUntil = Date.now() + 5000;
+    saveLocal();
+    syncToSheet();
+    renderTable();
+    renderDashboard();
   }
 });
 
@@ -1194,15 +1213,19 @@ function updateSyncBanner(state, msg) {
 // so we do NOT show "Synced" based on this. The pull confirms sync.
 function syncToSheet() {
   if (!SHEET_URL) return;
-  const payload = JSON.stringify({ action:'write', rows, target:TARGET });
+  // Block pulls for 5s after every write so the POST can land
+  // before the next poll tries to read back potentially stale data
+  pullBlockUntil = Date.now() + 5000;
+  const payload = JSON.stringify({
+    action:'write', rows, target:TARGET,
+    version: localVersion  // Sheet stores this so pulls can compare
+  });
   fetch(SHEET_URL, {
     method: 'POST',
     mode: 'no-cors',
     headers: { 'Content-Type': 'text/plain' },
     body: payload
-  }).catch(() => {
-    // Silent failure — pull will surface the error if Sheet is unreachable
-  });
+  }).catch(() => {});
 }
 
 // ── READ via JSONP ──
@@ -1213,17 +1236,21 @@ function syncToSheet() {
 function pullFromSheet() {
   if (!SHEET_URL) return;
 
+  // Respect the pull block — don't overwrite fresh local edits
+  if (Date.now() < pullBlockUntil) {
+    updateSyncBanner('ok', '● Live · Last synced: ' + new Date().toLocaleTimeString());
+    return;
+  }
+
   const callbackName = '_slicesCallback_' + Date.now();
   let settled = false;
 
-  // Timeout: if Apps Script doesn't respond in 10s, show waiting message
   const timer = setTimeout(() => {
     if (settled) return;
     settled = true;
     delete window[callbackName];
     const prev = document.getElementById('_jsonp_script');
     if (prev) prev.remove();
-    // Don't show hard error — could just be slow. Show soft warning.
     updateSyncBanner('warn', 'Waiting for Google Sheets response · Will retry in 30s');
   }, 10000);
 
@@ -1232,21 +1259,40 @@ function pullFromSheet() {
     settled = true;
     clearTimeout(timer);
     delete window[callbackName];
+
+    // Re-check block — a delete/edit may have happened while waiting
+    if (Date.now() < pullBlockUntil) {
+      updateSyncBanner('ok', '● Live · Last synced: ' + new Date().toLocaleTimeString());
+      return;
+    }
+
     try {
       if (data && Array.isArray(data.rows) && data.rows.length) {
-        rows = data.rows;
-        if (data.target) {
-          TARGET = data.target;
-          localStorage.setItem(TARGET_KEY, TARGET);
+        // Only overwrite local data if the Sheet version is newer
+        // than our last local save. This prevents a slow Sheet response
+        // from undoing a delete or edit the user just made.
+        const sheetVersion = parseInt(data.version) || 0;
+        const localVer     = parseInt(localStorage.getItem('slices_localVersion')) || 0;
+
+        if (sheetVersion >= localVer) {
+          // Sheet is same age or newer — safe to update
+          rows = data.rows;
+          if (data.target) {
+            TARGET = data.target;
+            localStorage.setItem(TARGET_KEY, TARGET);
+          }
+          bizCountBaseline = rows.filter(r => r.business && r.business.trim() !== '').length;
+          // Update localVersion to match sheet so we don't re-pull same data
+          localVersion = sheetVersion || localVer;
+          localStorage.setItem('slices_localVersion', localVersion);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+          renderTable();
+          renderDashboard();
         }
-        bizCountBaseline = rows.filter(r => r.business && r.business.trim() !== '').length;
-        saveLocal();
-        renderTable();
-        renderDashboard();
+        // Always show connected regardless of whether we updated
         updateSyncBanner('ok', '● Live · Last synced: ' + new Date().toLocaleTimeString());
       } else {
-        // Sheet connected but empty — keep showing local data
-        updateSyncBanner('ok', '● Connected to Google Sheets · Sheet has no data yet — showing local data');
+        updateSyncBanner('ok', '● Connected · Sheet has no data yet — showing local data');
       }
     } catch(e) {
       updateSyncBanner('warn', 'Sync issue: ' + e.message + ' · Retrying in 30s');
@@ -1263,11 +1309,9 @@ function pullFromSheet() {
     settled = true;
     clearTimeout(timer);
     delete window[callbackName];
-    // Show a clear, actionable message — most likely cause is
-    // Apps Script not yet redeployed with the updated code
     updateSyncBanner('warn',
-      '⚠ Sheet not responding · Most likely fix: open Apps Script → Deploy → ' +
-      'Manage deployments → Edit → set "Anyone" access → Re-deploy · Will retry in 30s');
+      '⚠ Sheet not responding · Open Apps Script → Deploy → Manage deployments' +
+      ' → pencil icon → New version → Deploy · Will retry in 30s');
   };
   script.src = SHEET_URL + '?action=read&callback=' + callbackName + '&t=' + Date.now();
   document.head.appendChild(script);

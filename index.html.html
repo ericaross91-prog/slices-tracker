@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S.L.I.C.E.S. Sessions Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=IBM+Plex+Mono:wght@500;700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --purple:#6a0dad;--purple-pale:#f5eeff;
+  --orange:#e07010;
+  --green-bg:#d4edda;--green-text:#145a28;--green-bd:#4cae4c;
+  --blue-bg:#cde8ff;--blue-text:#003a7a;--blue-bd:#2980d4;
+  --tan-bg:#f5e6c8;--tan-text:#6b4c1a;--tan-bd:#c8a96e;
+  --red-bg:#fde0e0;--red-text:#7a1212;--red-bd:#e03c3c;
+  --g100:#f8f8f8;--g200:#eeeeee;--g500:#999;--g700:#444;
+}
+body{font-family:'DM Sans',sans-serif;background:#ddd0f0;color:#1a1a1a;min-height:100vh;padding:10px}
+.shell{background:#fff;border-radius:14px;border:4px solid var(--purple);box-shadow:0 0 0 3px var(--orange),0 6px 30px rgba(106,13,173,.15);overflow:hidden;display:flex;flex-direction:column;height:calc(100vh - 20px)}
+.sticky-top{flex-shrink:0;background:#fff;border-bottom:3px solid var(--purple)}
+.bar-top{height:6px;background:linear-gradient(90deg,var(--purple),var(--orange))}
+.bar-mid{height:4px;background:linear-gradient(90deg,var(--orange),var(--purple))}
+.app-header{padding:7px 20px 0}
+.header-top{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.logo-badge{background:linear-gradient(135deg,var(--purple),var(--orange));border-radius:9px;padding:7px 14px;font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:4px;white-space:nowrap}
+.app-title{font-family:'Rajdhani',sans-serif;font-size:19px;font-weight:700;letter-spacing:2px;color:var(--purple);text-transform:uppercase}
+.app-subtitle{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--orange);letter-spacing:1px;margin-top:2px;font-weight:700}
+.sync-banner{margin:0 20px 5px;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:700;display:flex;align-items:center;gap:8px;border:1.5px solid}
+.sync-ok{background:#eafaf1;border-color:#27ae60;color:#145a28}
+.sync-warn{background:#fff8e1;border-color:#f0a500;color:#6b4400}
+.sync-err{background:#fdecea;border-color:#e03c3c;color:#7a1212}
+.sync-setup{background:var(--purple-pale);border-color:var(--purple);color:var(--purple)}
+.sync-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.sync-dot.green{background:#27ae60;animation:pulse 2s infinite}
+.sync-dot.yellow{background:#f0a500}
+.sync-dot.red{background:#e03c3c}
+.sync-dot.purple{background:var(--purple)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.sync-link{color:inherit;text-decoration:underline;cursor:pointer;margin-left:auto;white-space:nowrap;font-size:10px}
+.dashboard{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:0 20px 7px}
+.tile{border-radius:8px;padding:6px 10px;border:2.5px solid}
+.tile-label{font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;margin-bottom:2px;line-height:1.2}
+.tile-value{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;line-height:1}
+.tile-sub{font-size:9px;margin-top:2px;font-weight:700;line-height:1.2}
+.progress-wrap{margin-top:3px;background:rgba(0,0,0,.1);border-radius:3px;height:3px;overflow:hidden}
+.progress-bar{height:100%;border-radius:3px;transition:width .4s}
+.t-green{background:#eafaf1;border-color:#27ae60;color:#145a28}
+.t-yellow{background:#fef9ec;border-color:#f0a500;color:#6b4400}
+.t-red{background:#fdecea;border-color:#e03c3c;color:#7a1212}
+.t-purple{background:var(--purple-pale);border-color:var(--purple);color:var(--purple)}
+.tile-target-input{font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;background:transparent;border:none;outline:none;color:inherit;width:65px;cursor:text;border-bottom:2px dashed rgba(106,13,173,.4)}
+.toolbar{background:var(--purple-pale);border-bottom:2px solid var(--orange);padding:5px 20px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;flex-shrink:0}
+.toolbar-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:12px;letter-spacing:1.5px;color:var(--purple);text-transform:uppercase;margin-right:4px}
+.btn{font-family:'DM Sans',sans-serif;font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:5px;cursor:pointer;transition:all .15s;border:2px solid var(--purple);background:#fff;color:var(--purple)}
+.btn:hover{background:var(--purple);color:#fff}
+.btn-orange{border-color:var(--orange);color:var(--orange)}
+.btn-orange:hover{background:var(--orange);color:#fff}
+.btn-danger{border-color:#c0392b;color:#c0392b;margin-left:auto}
+.btn-danger:hover{background:#c0392b;color:#fff}
+.legend{padding:4px 20px;display:flex;gap:10px;align-items:center;font-size:10.5px;flex-wrap:wrap;border-bottom:1px solid var(--g200);background:#fff;flex-shrink:0}
+.legend-group{font-weight:700;font-size:9.5px;color:var(--g700)}
+.pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700;border:1.5px solid}
+.pill-green{background:var(--green-bg);color:var(--green-text);border-color:var(--green-bd)}
+.pill-blue{background:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-bd)}
+.pill-tan{background:var(--tan-bg);color:var(--tan-text);border-color:var(--tan-bd)}
+.pill-red{background:var(--red-bg);color:var(--red-text);border-color:var(--red-bd)}
+.table-scroll{overflow:auto;flex:1}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px;min-width:1800px}
+thead{position:sticky;top:0;z-index:20}
+thead tr:first-child{background:linear-gradient(90deg,var(--purple),#8a1fd0)}
+thead tr:first-child th{font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:#fff;padding:8px 7px;text-align:left;white-space:nowrap;border-right:1px solid rgba(255,255,255,.15)}
+thead tr:first-child th:last-child{border-right:none}
+thead tr:nth-child(2){background:#2a0a5a}
+tbody tr{border-bottom:1px solid var(--g200);transition:background .1s}
+tbody tr:nth-child(even){background:var(--g100)}
+tbody tr:hover{background:var(--purple-pale)}
+tbody td{padding:5px 7px;vertical-align:middle;border-right:1px solid var(--g200)}
+tbody td:last-child{border-right:none}
+.row-num{color:var(--g500);font-family:'IBM Plex Mono',monospace;font-size:10px;text-align:center;min-width:26px}
+.col-freeze-num{position:sticky;left:0;z-index:5;background:#fff;box-shadow:1px 0 0 #ddd}
+.col-freeze-biz{position:sticky;left:34px;z-index:5;background:#fff;min-width:200px;box-shadow:2px 0 4px rgba(0,0,0,.07)}
+thead .col-freeze-num{background:var(--purple);z-index:25}
+thead .col-freeze-biz{background:var(--purple);z-index:25}
+thead tr:nth-child(2) .col-freeze-num,
+thead tr:nth-child(2) .col-freeze-biz{background:#2a0a5a}
+tbody tr:nth-child(even) .col-freeze-num,
+tbody tr:nth-child(even) .col-freeze-biz{background:var(--g100)}
+tbody tr:hover .col-freeze-num,
+tbody tr:hover .col-freeze-biz{background:var(--purple-pale)}
+.cell-input{font-family:'DM Sans',sans-serif;font-size:11.5px;color:#1a1a1a;background:transparent;border:none;outline:none;width:100%;padding:2px 4px;border-radius:4px;line-height:1.35;cursor:text;transition:background .1s,box-shadow .1s}
+.cell-input:focus{background:#fffbe6;box-shadow:inset 0 0 0 1.5px var(--orange)}
+.cell-input::placeholder{color:#ccc;font-size:10.5px}
+textarea.cell-input{resize:vertical;min-height:26px;max-height:80px;vertical-align:top;font-size:11px}
+select.dd{font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;border-radius:20px;padding:2px 18px 2px 7px;border:1.5px solid transparent;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23666'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 5px center;min-width:80px;transition:all .15s}
+.mode-walkin{background-color:var(--green-bg);color:var(--green-text);border-color:var(--green-bd)}
+.mode-phone{background-color:var(--blue-bg);color:var(--blue-text);border-color:var(--blue-bd)}
+.mode-email{background-color:var(--tan-bg);color:var(--tan-text);border-color:var(--tan-bd)}
+.mode-none{background-color:#f0f0f0;color:#666;border-color:#ccc}
+.visit-tbd{background-color:var(--tan-bg);color:var(--tan-text);border-color:var(--tan-bd)}
+.visit-yes{background-color:var(--green-bg);color:var(--green-text);border-color:var(--green-bd)}
+.visit-no{background-color:var(--red-bg);color:var(--red-text);border-color:var(--red-bd)}
+.visit-none{background-color:#f0f0f0;color:#666;border-color:#ccc}
+.bt-coffee{background-color:#fff0d0;color:#6b3a00;border-color:#d4923a}
+.bt-bar{background-color:#ffe0e0;color:#7a1a1a;border-color:#d46060}
+.bt-health{background-color:var(--green-bg);color:var(--green-text);border-color:var(--green-bd)}
+.bt-community{background-color:#cde8ff;color:#003a7a;border-color:#2980d4}
+.bt-event{background-color:#e8e0ff;color:#3a0080;border-color:#9b59b6}
+.bt-other{background-color:#f0f0f0;color:#444;border-color:#aaa}
+.bt-none{background-color:#f0f0f0;color:#666;border-color:#ccc}
+.tl-yes{background-color:var(--green-bg);color:var(--green-text);border-color:var(--green-bd)}
+.tl-no{background-color:var(--red-bg);color:var(--red-text);border-color:var(--red-bd)}
+.tl-review{background-color:#fef9ec;color:#6b4400;border-color:#f0a500}
+.tl-none{background-color:#f0f0f0;color:#666;border-color:#ccc}
+.filter-input{font-family:'DM Sans',sans-serif;font-size:10px;padding:2px 5px;border-radius:4px;border:1.5px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#fff;width:100%;outline:none}
+.filter-input::placeholder{color:rgba(255,255,255,.5);font-size:9.5px}
+.filter-input:focus{border-color:var(--orange);background:rgba(255,255,255,.2)}
+.filter-select{font-family:'DM Sans',sans-serif;font-size:10px;padding:2px 4px;border-radius:4px;border:1.5px solid rgba(255,255,255,.3);background:rgba(30,10,60,.85);color:#fff;width:100%;outline:none;cursor:pointer}
+.del-btn{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:#fde0e0;border:2px solid #e03c3c;cursor:pointer;color:#c0392b;font-size:13px;font-weight:700;transition:all .15s;flex-shrink:0;font-family:'DM Sans',sans-serif}
+.del-btn:hover{background:#c0392b;color:#fff;transform:scale(1.1)}
+tfoot td{padding:8px 10px;border-top:2px dashed var(--orange);background:#fff}
+.add-row-btn{background:none;border:2px dashed var(--purple);border-radius:5px;padding:4px 14px;font-size:11.5px;font-weight:700;color:var(--purple);cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+.add-row-btn:hover{background:var(--purple-pale);border-style:solid}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px 28px;max-width:400px;width:90%;border:3px solid var(--purple);box-shadow:0 0 0 2px var(--orange),0 6px 30px rgba(0,0,0,.25);text-align:center}
+.modal h3{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;color:var(--purple);margin-bottom:8px}
+.modal p{font-size:12.5px;color:#444;line-height:1.5;margin-bottom:16px}
+.modal-btns{display:flex;gap:8px;justify-content:center}
+.modal-btns .btn{min-width:80px}
+.sheets-modal{max-width:580px;max-height:88vh;overflow-y:auto;text-align:left}
+.sheets-modal h3{text-align:center}
+.sheets-step{font-size:11px;background:#f8f4ff;border-left:3px solid var(--purple);border-radius:6px;padding:10px 12px;margin-bottom:10px;color:#333;line-height:1.7}
+.sheets-step code{background:#e8e0f4;color:var(--purple);padding:1px 5px;border-radius:3px;font-family:'IBM Plex Mono',monospace;font-size:10px}
+.code-block{background:#1e1e1e;color:#d4d4d4;border-radius:7px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;line-height:1.6;white-space:pre;overflow-x:auto;margin-bottom:8px;max-height:220px;overflow-y:auto}
+.sheets-modal input[type=text]{width:100%;padding:7px 10px;border:2px solid var(--g200);border-radius:7px;font-size:12.5px;font-family:'DM Sans',sans-serif;margin-bottom:8px;outline:none}
+.sheets-modal input[type=text]:focus{border-color:var(--purple)}
+</style>
+</head>
+<body>
+
+<!-- DELETE MODAL -->
+<div class="modal-overlay" id="del-modal">
+  <div class="modal">
+    <h3>Delete Row?</h3>
+    <p>Permanently delete this entry? This cannot be undone.</p>
+    <div class="modal-btns">
+      <button class="btn btn-danger" id="del-confirm-btn">Yes, Delete</button>
+      <button class="btn" onclick="closeModal('del-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHEETS MODAL -->
+<div class="modal-overlay" id="sheets-modal">
+  <div class="modal sheets-modal">
+    <h3>⚙ Connect Google Sheets</h3>
+    <div class="sheets-step">
+      <strong>STEP 1</strong> — Go to <a href="https://sheets.google.com" target="_blank" style="color:var(--purple)">sheets.google.com</a> and create a new blank spreadsheet. Name it <em>SLICES Tracker Data</em>.<br><br>
+      <strong>STEP 2</strong> — Inside that sheet click <code>Extensions</code> → <code>Apps Script</code>. Delete all default code.<br><br>
+      <strong>STEP 3</strong> — Click the button below to copy the code, paste it into the editor, and save with Ctrl+S.<br><br>
+      <strong>STEP 4</strong> — Click <code>Deploy</code> → <code>New deployment</code> → gear icon → <code>Web app</code>. Set <strong>Execute as: Me</strong> and <strong>Who has access: Anyone</strong>. Click Deploy and authorize.<br><br>
+      <strong>STEP 5</strong> — Copy the Web app URL and paste it below. It starts with <code>https://script.google.com/macros/s/</code>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-weight:700;font-size:11px">Apps Script code:</span>
+      <button class="btn btn-orange" onclick="copyScript()" id="copy-btn" style="font-size:10.5px;padding:3px 10px">📋 Copy Code to Clipboard</button>
+    </div>
+    <div class="code-block" id="apps-script-code">const SHEET_NAME = 'TrackerData';
+function doPost(e) {
+  try {
+    const raw = e.postData && e.postData.contents ? e.postData.contents
+      : (e.parameter && e.parameter.payload ? e.parameter.payload : '{}');
+    const data = JSON.parse(raw);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+    if (data.action === 'write' && data.rows) {
+      sheet.clearContents();
+      const h = ['id','business','businessType','address','zip','phone','email',
+        'contact','title','mode','initDate','lastDate','sessionConfirmed',
+        'dateTime','targetLocation','volunteer','notes','target','version'];
+      sheet.appendRow(h);
+      const ver = data.version || Date.now();
+      data.rows.forEach(r => sheet.appendRow([r.id,r.business,r.businessType||'',
+        r.address,r.zip,r.phone,r.email,r.contact,r.title,r.mode,r.initDate,
+        r.lastDate,r.sessionConfirmed,r.dateTime,r.targetLocation||'',
+        r.volunteer,r.notes,data.target||21,ver]));
+    }
+    return ContentService.createTextOutput(JSON.stringify({status:'ok'}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({status:'error',msg:err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+function doGet(e) {
+  const cb = (e.parameter && e.parameter.callback) ? e.parameter.callback : 'cb';
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    if (!sheet || sheet.getLastRow() < 2)
+      return ContentService.createTextOutput(cb+'('+JSON.stringify({rows:[],target:21,version:0})+')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    const vals = sheet.getDataRange().getValues();
+    const headers = vals[0];
+    const rows = vals.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h,i) => { obj[h] = (row[i]==null||row[i]===undefined)?'':String(row[i]); });
+      return obj;
+    });
+    const target  = rows.length ? (parseInt(rows[0].target)||21) : 21;
+    const version = rows.length ? (parseInt(rows[0].version)||0) : 0;
+    rows.forEach(r => { delete r.target; delete r.version; });
+    return ContentService.createTextOutput(cb+'('+JSON.stringify({rows,target,version})+')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  } catch(err) {
+    return ContentService.createTextOutput(cb+'('+JSON.stringify({rows:[],target:21,version:0,error:err.message})+')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+}</div>
+    <input type="text" id="sheet-url-input" placeholder="https://script.google.com/macros/s/YOUR_ID/exec">
+    <div class="modal-btns" style="margin-top:4px">
+      <button class="btn" onclick="saveSheetURL()">Save &amp; Connect</button>
+      <button class="btn btn-danger" onclick="clearSheetURL()">Disconnect</button>
+      <button class="btn" style="border-color:#888;color:#888" onclick="closeModal('sheets-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="shell">
+  <div class="sticky-top">
+    <div class="bar-top"></div>
+    <div class="app-header">
+      <div class="header-top">
+        <div class="logo-badge">S.L.I.C.E.S.</div>
+        <div>
+          <div class="app-title">Small Business Sessions Outreach Tracker</div>
+          <div class="app-subtitle">MAY 9 – JUNE 12, 2026 &nbsp;·&nbsp; SESSIONS SCHEDULING CAMPAIGN</div>
+        </div>
+      </div>
+      <div class="sync-banner sync-setup" id="sync-banner">
+        <span class="sync-dot purple" id="sync-dot"></span>
+        <span id="sync-text">Initializing...</span>
+        <span class="sync-link" onclick="openModal('sheets-modal')">⚙ Manage Connection</span>
+      </div>
+      <div class="dashboard" id="dashboard"></div>
+    </div>
+    <div class="bar-mid"></div>
+    <div class="toolbar">
+      <span class="toolbar-title">Sessions Log</span>
+      <button class="btn btn-orange" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn" onclick="syncNow()" id="sync-btn">↻ Sync Now</button>
+      <button class="btn btn-danger" onclick="confirmClear()">✕ Clear All</button>
+    </div>
+    <div class="legend">
+      <span class="legend-group">Mode:</span>
+      <span><span class="pill pill-green">Walk-In</span></span>
+      <span><span class="pill pill-blue">Phone</span></span>
+      <span><span class="pill pill-tan">Email</span></span>
+      &nbsp;
+      <span class="legend-group">Session:</span>
+      <span><span class="pill pill-tan">TBD</span></span>
+      <span><span class="pill pill-green">Yes</span></span>
+      <span><span class="pill pill-red">No</span></span>
+      <span style="margin-left:auto;font-size:9.5px;color:#aaa;font-style:italic">Click cell to edit · ✕ button deletes row · Goal tile is editable</span>
+    </div>
+  </div>
+
+  <div class="table-scroll">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th class="col-freeze-num" style="min-width:26px">#</th>
+          <th class="col-freeze-biz" style="min-width:200px">Business Name</th>
+          <th style="min-width:130px">Business Type</th>
+          <th style="min-width:140px">Address</th>
+          <th style="min-width:88px">Zip</th>
+          <th style="min-width:114px">Phone</th>
+          <th style="min-width:126px">Email</th>
+          <th style="min-width:108px">Contact Name</th>
+          <th style="min-width:82px">Title</th>
+          <th style="min-width:88px">Mode of Contact</th>
+          <th style="min-width:108px">Initial Contact Date</th>
+          <th style="min-width:108px">Last Contact Date</th>
+          <th style="min-width:88px">Session Confirmed</th>
+          <th style="min-width:138px">Session Date &amp; Time</th>
+          <th style="min-width:106px;white-space:normal;line-height:1.3">Target Location</th>
+          <th style="min-width:62px">Volunteer</th>
+          <th style="min-width:280px">Notes</th>
+          <th style="min-width:32px"></th>
+        </tr>
+        <tr id="filter-row">
+          <th class="col-freeze-num"></th>
+          <th class="col-freeze-biz"><input class="filter-input" data-col="business" placeholder="🔍 Name" oninput="applyFilters()"></th>
+          <th><select class="filter-select" data-col="businessType" onchange="applyFilters()">
+            <option value="">All Types</option>
+            <option>Coffee/Tea/Eatery</option><option>Bar/Restaurant</option>
+            <option>Health &amp; Wellness</option><option>Community Center</option>
+            <option>Event Space</option><option>Other</option>
+          </select></th>
+          <th></th>
+          <th><input class="filter-input" data-col="zip" placeholder="🔍 Zip" oninput="applyFilters()"></th>
+          <th></th><th></th><th></th><th></th><th></th>
+          <th><input class="filter-input" data-col="initDate" placeholder="🔍 Date" oninput="applyFilters()"></th>
+          <th></th>
+          <th><select class="filter-select" data-col="sessionConfirmed" onchange="applyFilters()">
+            <option value="">All</option><option>Yes</option><option>No</option><option>TBD</option>
+          </select></th>
+          <th></th>
+          <th><select class="filter-select" data-col="targetLocation" onchange="applyFilters()">
+            <option value="">All</option><option>Yes</option><option>No</option><option>Under Review</option>
+          </select></th>
+          <th><input class="filter-input" data-col="volunteer" placeholder="🔍 Vol." oninput="applyFilters()"></th>
+          <th></th><th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+      <tfoot><tr><td colspan="18"><button class="add-row-btn" onclick="addRow()">+ Add New S.L.I.C.E.S. Entry</button></td></tr></tfoot>
+    </table>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// CONFIG — set once, works for all users
+// ═══════════════════════════════════════════
+const SHEET_URL   = 'https://script.google.com/macros/s/AKfycbx7X4uzIIKRCNiSfM5bYfL4sQiYI4Ty6TWW6GeIZHtgZ1AveveXSRAL1Ox2S9y_rlRmvw/exec';
+const TARGET_KEY  = 'slices_target';
+const VER_KEY     = 'slices_ver';
+const CAMPAIGN_END = new Date('2026-06-13T00:00:00');
+
+let TARGET  = parseInt(localStorage.getItem(TARGET_KEY)||'21',10);
+let rows    = [];
+let nid     = 1000;
+let pollTimer = null;
+let isSyncing = false;
+let lastLocalWrite = 0;  // timestamp of last local change
+
+// ═══════════════════════════════════════════
+// SEED DATA
+// ═══════════════════════════════════════════
+const SEED = [
+  {b:"Ralph Sealey",bt:"",a:"489 Quincy Street",z:"",ph:"347-539-7669",em:"",cn:"Ralph Sealey",ti:"",mo:"",id:"04/20/2026",ld:"04/28/2026",sc:"Yes",dt:"5/15/2026 6pm-9pm",vo:"",no:"Contact team. Info shared with constituent. Mr. Sealy contacted Estelle, he is waiting for a date to have the session, please contact."},
+  {b:"Nicholas Brooklyn",bt:"",a:"1396 Fulton Street",z:"",ph:"718-858-4400",em:"",cn:"Monique Nicholas",ti:"",mo:"Phone",id:"04/23/2026",ld:"04/28/2026",sc:"TBD",dt:"",vo:"",no:"Confirmed Stefani will visit on Saturday at 4pm. Monique is also interested in having a SLICE session; spoke with Giannica, emailed details and contact info to schedule."},
+  {b:"Sisters Place",bt:"",a:"456 Nostrand Ave",z:"",ph:"718-398-1766",em:"",cn:"Kamale",ti:"",mo:"Phone",id:"04/23/2026",ld:"05/07/2026",sc:"TBD",dt:"",vo:"",no:"Giannica contacted them to schedule a day. Waiting for response. Additional attempt to contact was made on 4/30."},
+  {b:"FEC",bt:"",a:"410 Nostrand Ave",z:"",ph:"631-892-8637",em:"",cn:"Sherlene",ti:"",mo:"Phone",id:"04/30/2026",ld:"05/07/2026",sc:"TBD",dt:"",vo:"",no:"Giannica reached out with possible dates; waiting for her to choose one. She will meet with her team and get back on Monday."},
+  {b:"Bush Doctors",bt:"",a:"",z:"",ph:"",em:"",cn:"",ti:"",mo:"",id:"",ld:"",sc:"Yes",dt:"5/17/2026",vo:"",no:""},
+  {b:"Asase Yaa Cultural Arts Foundation",bt:"",a:"1005 Greene Ave",z:"11221",ph:"646-468-0710",em:"",cn:"Kofi Osea Williams",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"TBD",dt:"",vo:"",no:"Giannica spoke with Kofi; Friday 6-8:30pm / Saturday 12noon-4pm works best. Waiting for him to confirm the date."},
+  {b:"Bed Vyne Wine Experience",bt:"",a:"385 Tompkins Ave",z:"11216",ph:"347-915-1080",em:"",cn:"Michael Brooks",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"TBD",dt:"",vo:"",no:"Spoke with Sandra (the owner's sister); she will have him call back when he is at the location."},
+  {b:"Revival X Brooklyn",bt:"",a:"205 Patchen Ave",z:"",ph:"718-513-9501",em:"revivalxbklyn@gmail.com",cn:"Ricardo Pierre",ti:"",mo:"Phone",id:"05/07/2026",ld:"",sc:"TBD",dt:"",vo:"",no:"Requested email with details."},
+  {b:"Brown Sugar",bt:"",a:"Marcus Garvey Blvd",z:"",ph:"(347) 779-5204",em:"",cn:"Mr. Greg Jordan",ti:"",mo:"Phone",id:"05/07/2026",ld:"",sc:"TBD",dt:"",vo:"",no:"Ms. Grace recommended contacting Gregory Jordan (owner). Interested in hosting a SLICE event. 5/7: Mr. Jordan will share email. Also interested in a fundraiser."},
+  {b:"Richard Beavers Gallery",bt:"",a:"408 Marcus Garvey Blvd",z:"",ph:"347-663-8195",em:"",cn:"",ti:"",mo:"Email",id:"04/30/2026",ld:"",sc:"",dt:"",vo:"",no:"Request email sent to Monica Langham ML@richardbeaversgallery.com; 4/30 sent email in lieu of flyer."},
+  {b:"Zaca Cafe",bt:"",a:"426 Marcus Garvey Blvd",z:"",ph:"718-443-2500",em:"",cn:"Inoussa Compaore",ti:"",mo:"",id:"04/23/2026",ld:"04/28/2026",sc:"",dt:"",vo:"",no:"Contact information handed out for owner."},
+  {b:"David's Brisket House",bt:"",a:"533 Nostrand Ave",z:"",ph:"718-789-1155",em:"",cn:"Ramos",ti:"",mo:"",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Call Wednesday mornings; Manager available in the AM."},
+  {b:"Filly Luv",bt:"",a:"227 Malcolm X Blvd",z:"",ph:"(646) 934-4970",em:"",cn:"",ti:"",mo:"Email",id:"04/30/2026",ld:"",sc:"",dt:"",vo:"",no:"Submitted email with details."},
+  {b:"Beso Restaurant",bt:"",a:"370 Lewis Ave",z:"",ph:"347-915-2900",em:"",cn:"",ti:"",mo:"",id:"04/22/2026",ld:"",sc:"",dt:"",vo:"",no:"Staff member referred to website; not authorized to give mgr name. Erica needs to do an in-person visit."},
+  {b:"DJ Bird Soup",bt:"",a:"485 Nostrand Ave",z:"11216",ph:"929-234-6561",em:"",cn:"",ti:"",mo:"",id:"05/07/2026",ld:"",sc:"",dt:"",vo:"",no:"Call between 12-3pm."},
+  {b:"Gladus Book Store",bt:"",a:"306 Malcolm X Blvd",z:"",ph:"",em:"",cn:"",ti:"",mo:"",id:"04/23/2026",ld:"",sc:"",dt:"",vo:"",no:"No contact information found on Google."},
+  {b:"Sweet Brooklyn Bar and Grill",bt:"",a:"608 Nostrand Ave",z:"",ph:"347-425-0111",em:"",cn:"Katana Jefferson and Carlene Rosado",ti:"",mo:"",id:"05/07/2026",ld:"",sc:"",dt:"",vo:"",no:"Phone # cannot be completed, may be temp disconnected."},
+  {b:"Geno's Fish n Chips",bt:"",a:"369B Nostrand Ave",z:"11216",ph:"347-404-7241",em:"",cn:"Justin Chance",ti:"Manager",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:"Restaurant is very small; we may want to reconsider."},
+  {b:"The Stuy Burgers",bt:"",a:"392 Halsey St",z:"",ph:"347-789-6338",em:"",cn:"Titus Mitchell",ti:"",mo:"",id:"05/07/2026",ld:"",sc:"",dt:"",vo:"",no:"May be disconnected."},
+  {b:"Spudz",bt:"",a:"1460 Fulton St",z:"11216",ph:"347-295-1966",em:"",cn:"Forest",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Soul Kofa",bt:"",a:"235 Ralph Ave",z:"11233",ph:"917-966-2476",em:"",cn:"Kevin Golden",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Xcellent Soul Food",bt:"",a:"372 Ralph Ave",z:"11233",ph:"347-663-6111",em:"",cn:"Issoufou Diabate",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Fish and Chips",bt:"",a:"555 Throop Ave",z:"11216",ph:"718-249-0711",em:"",cn:"George",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"The Coyote Club",bt:"",a:"417 Throop Ave",z:"11221",ph:"",em:"",cn:"",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Natural Blends",bt:"",a:"302 Nostrand Ave",z:"11216",ph:"718-513-4330",em:"",cn:"Miss Simone Wallace and Mr. D Wallace",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Grand Champs",bt:"",a:"197 Patchen Ave",z:"",ph:"718-484-4880",em:"",cn:"Sabrina Brochman",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Space 71X Cafe",bt:"",a:"71 Malcolm X Blvd",z:"",ph:"347-533-7533",em:"",cn:"Farrell Joseph",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Brooklyn Tea",bt:"",a:"411 Lewis Ave",z:"",ph:"929-234-2355",em:"",cn:"Jamila Ali",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Dough Girl Cupcakes",bt:"",a:"421 Marcus Garvey Blvd",z:"",ph:"347-306-6601",em:"",cn:"",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Doctors Cave Cafe",bt:"",a:"856 Marcy Ave",z:"11216",ph:"718-398-4776",em:"",cn:"Jean",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"A and A Bake Doubles and Roti",bt:"",a:"1337 Fulton St",z:"",ph:"347-425-0016",em:"",cn:"John",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Marian's",bt:"",a:"108 Patchen Ave",z:"",ph:"",em:"",cn:"Dennis Geoghan",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Little Roy",bt:"",a:"571 Greene Ave",z:"",ph:"",em:"Littleroycoffee@gmail.com",cn:"Mo",ti:"",mo:"Email",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Awaiting response."},
+  {b:"KS Jamm Dance Troupe",bt:"",a:"347 Nostrand Ave",z:"11216",ph:"347-789-4849",em:"info@ksjammdancestudio.com",cn:"Kashani Stokley and Stan Morse",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Giannica left a voicemail and sent an email."},
+  {b:"H2 Salon",bt:"",a:"473 Tompkins Ave",z:"11216",ph:"718-230-4225",em:"",cn:"Dailey Green",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Spoke with reception and left a note with name and contact for the owner."},
+  {b:"Jasmyn House of Scents",bt:"",a:"514 Nostrand Ave",z:"11216",ph:"347-425-8898",em:"",cn:"Naj",ti:"",mo:"",id:"05/07/2026",ld:"",sc:"",dt:"",vo:"",no:"LVM to call me for further info."},
+  {b:"One World Place Space",bt:"",a:"193 Marcus Garvey Blvd",z:"11216",ph:"347-240-0600",em:"",cn:"TJ",ti:"",mo:"",id:"05/07/2026",ld:"",sc:"",dt:"",vo:"",no:"Phone no longer in service."},
+  {b:"Life Botanical and Style",bt:"",a:"384 Tompkins Ave",z:"11216",ph:"",em:"blackgirlssew@gmail.com",cn:"Heka Hapa and Lesley Aware",ti:"",mo:"Email",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Awaiting response."},
+  {b:"Jaf Threads",bt:"",a:"188 Tompkins Ave",z:"11206",ph:"631-365-0359",em:"",cn:"Jaf",ti:"",mo:"Phone",id:"05/07/2026",ld:"",sc:"",dt:"",vo:"",no:"LVM; left info to contact Giannica for appt."},
+  {b:"Natural and Essentials",bt:"",a:"369D Nostrand Ave",z:"",ph:"347-627-2726",em:"",cn:"Justin Chance",ti:"",mo:"",id:"05/07/2026",ld:"",sc:"",dt:"",vo:"",no:"Phone call could not be completed; may be temp disconnected."},
+  {b:"Niang Family Fashion Inc",bt:"",a:"185 Malcolm X Blvd",z:"11221",ph:"518-304-6363",em:"",cn:"Omar",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Verdure Designer Florist",bt:"",a:"244 Malcolm X Blvd",z:"",ph:"718-450-8224",em:"",cn:"Dizzie Ligon",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Global Wealth",bt:"",a:"246 Malcolm X Blvd",z:"11233",ph:"347-425-8322",em:"",cn:"Sunny",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Sheryl Roberts",bt:"",a:"409 Lewis Ave",z:"11233",ph:"347-240-5019",em:"",cn:"Sheryl Roberts",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Macon Public Library",bt:"",a:"361 Lewis Ave",z:"11233",ph:"718-573-5606",em:"",cn:"",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Automated message; did not get to speak to anyone directly."},
+  {b:"Catcista's",bt:"",a:"414 Marcus Garvey Blvd",z:"11221",ph:"347-318-3222",em:"",cn:"Eric Thompson",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Invalid number."},
+  {b:"Olivine Wines",bt:"",a:"426D Marcus Garvey Blvd",z:"",ph:"347-549-6930",em:"",cn:"Kristin Singleton Ferrari",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Giannica left a voice message."},
+  {b:"Natty Garden",bt:"",a:"383 Marcus Garvey Blvd",z:"",ph:"718-514-6677",em:"",cn:"Joel",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Number automatically hangs up."},
+  {b:"The Bar Boutique",bt:"",a:"166 Ralph Ave",z:"11233",ph:"347-715-5356",em:"",cn:"Kwan",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"The number is invalid."},
+  {b:"Bed-Stuy Fly",bt:"",a:"287 Ralph Ave",z:"",ph:"347-406-9927",em:"info@bedstuyfly.nyc",cn:"Steven King",ti:"Owner",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Spoke with receptionist; advised to send email as owner reviews it. Giannica sent an email."},
+  {b:"The Library",bt:"",a:"372 Kosciusko St",z:"",ph:"646-717-2449",em:"",cn:"Matt",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"No answer and unable to leave voice message."},
+  {b:"Black Star Vinyl",bt:"",a:"480A Madison St",z:"",ph:"",em:"info@halseylewisbk",cn:"Martin Brewer",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Moshood",bt:"",a:"1360 Fulton St",z:"",ph:"718-243-9433",em:"",cn:"Natherlene",ti:"",mo:"",id:"04/30/2026",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Rosalria's Cafe",bt:"",a:"615 Nostrand Ave",z:"",ph:"862-337-5668",em:"",cn:"",ti:"Manager",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Giannica called the cafe but was unable to get a hold of anyone."},
+  {b:"Island Rib",bt:"",a:"611 Nostrand Ave",z:"",ph:"718-536-2973",em:"",cn:"",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Left a voice message, no answer."},
+  {b:"The Wayward Hair Salon",bt:"",a:"854 St. Johns Place",z:"11216",ph:"347-572-7139",em:"info@waywardhairdresser.com",cn:"",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Giannica submitted an email because the owner was not in office when the business was called."},
+  {b:"Nur Jahan Fabrics",bt:"",a:"1312 Fulton St",z:"11216",ph:"718-636-0409",em:"",cn:"Mohammad",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Owner is not interested in participating."},
+  {b:"Make Manifest BK",bt:"",a:"382 Tompkins Ave",z:"",ph:"",em:"makemanifestbk@gmail.com",cn:"Isha",ti:"",mo:"Walk-In",id:"04/27/2026",ld:"",sc:"No",dt:"",vo:"",no:"Owner advised she supports the Assemblymember but is not doing politics. Declined to host."},
+  {b:"Wellness Tea Therapy",bt:"",a:"525 Nostrand Ave",z:"11216",ph:"718-506-5766",em:"",cn:"Dr. Vera Daniels",ti:"",mo:"Phone",id:"05/07/2026",ld:"",sc:"",dt:"",vo:"",no:"Spoke with Dr. Daniels; unfortunately the business is no longer open."},
+  {b:"PutYourLogo",bt:"",a:"217 Marcus Garvey Blvd",z:"11221",ph:"646-655-7879",em:"",cn:"Mamadou Bah",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Giannica spoke to the owner; their location is no longer in Brooklyn."},
+  {b:"Gym x Boxing",bt:"",a:"59 Malcolm X Blvd",z:"",ph:"347-413-7479",em:"",cn:"",ti:"",mo:"Phone",id:"05/05/2026",ld:"",sc:"",dt:"",vo:"",no:"Number out of service."},
+  {b:"Milk and Pull",bt:"",a:"348 Malcolm X Blvd",z:"11233",ph:"(347) 533-8967",em:"joe@milkandpull.com",cn:"Joe",ti:"Owner",mo:"Walk-In",id:"04/16/2026",ld:"04/16/2026",sc:"TBD",dt:"",vo:"ER",no:"Need to email Joe and confirm date and time Assemblymember will be visiting."},
+  {b:"Early Yves",bt:"",a:"210 Patchen Ave",z:"11233",ph:"",em:"eventsearlyyves@gmail.com",cn:"Michiya Rivers",ti:"Asst Events Coordinator",mo:"Walk-In",id:"04/16/2026",ld:"04/16/2026",sc:"TBD",dt:"",vo:"ER",no:"Need to email Michiya and confirm date and time. Left a flyer."},
+  {b:"Trad Room BK",bt:"",a:"266 Malcolm X Blvd",z:"11233",ph:"(347) 240-5760",em:"manager@traderoombk.com",cn:"Angelica",ti:"Manager",mo:"Walk-In",id:"04/16/2026",ld:"04/16/2026",sc:"TBD",dt:"",vo:"ER",no:"Need to email Angelica and confirm date and time. Left a flyer."},
+  {b:"Life Wellness Center",bt:"",a:"376 Tompkins Ave",z:"11216",ph:"(347) 461-9939",em:"lifewellnessbk@gmail.com",cn:"Khadijah",ti:"Owner",mo:"Walk-In",id:"04/27/2026",ld:"04/27/2026",sc:"TBD",dt:"",vo:"ER",no:"Owner agreed to host but needs to confirm date/time. Very supportive, accepted a flyer."},
+  {b:"peace and Riot",bt:"",a:"401-403 Tompkins Ave",z:"11216",ph:"(347) 663-6100",em:"peaceandriot@gmail.com",cn:"Achuziam",ti:"Owner",mo:"Walk-In",id:"04/27/2026",ld:"04/27/2026",sc:"TBD",dt:"",vo:"ER",no:"Owner expressed interest but concerned about political climate. Floated idea of after-hours gathering. Follow up needed."},
+  {b:"COHENEN",bt:"",a:"366 Tompkins Ave",z:"11216",ph:"",em:"info.conohen@gmail.com",cn:"",ti:"",mo:"Walk-In",id:"04/27/2026",ld:"04/27/2026",sc:"TBD",dt:"",vo:"ER",no:"Staff recommended reaching out via email for consideration."},
+  {b:"Savvy Bistro and Bar",bt:"",a:"710 Nostrand Ave",z:"11216",ph:"(347) 533-7880",em:"",cn:"",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Ma-N-Pop",bt:"",a:"349 Lewis Ave",z:"",ph:"(718) 574-6735",em:"",cn:"",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Filly Love",bt:"",a:"",z:"",ph:"(470) 755-7872",em:"",cn:"",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Sister's Place",bt:"",a:"456 Nostrand Ave",z:"",ph:"(631) 892-8637",em:"",cn:"",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+  {b:"Family Enrichment Center",bt:"",a:"410 Nostrand Ave",z:"11216",ph:"",em:"",cn:"",ti:"",mo:"",id:"",ld:"",sc:"",dt:"",vo:"",no:""},
+];
+
+function makeSeedRows() {
+  return SEED.map((r,i) => ({
+    id: 1000 + i,
+    business:r.b||'', businessType:r.bt||'', address:r.a||'', zip:r.z||'',
+    phone:r.ph||'', email:r.em||'', contact:r.cn||'', title:r.ti||'',
+    mode:r.mo||'', initDate:r.id||'', lastDate:r.ld||'',
+    sessionConfirmed:r.sc||'', dateTime:r.dt||'',
+    targetLocation:'', volunteer:r.vo||'', notes:r.no||''
+  }));
+}
+
+// ═══════════════════════════════════════════
+// STARTUP — load then connect
+// ═══════════════════════════════════════════
+(function init() {
+  // Always start with SEED data so page is never blank
+  rows = makeSeedRows();
+  nid  = 1000 + rows.length;
+  render();
+
+  if (SHEET_URL) {
+    setBanner('connecting','Connecting to Google Sheets...');
+    // Pull immediately, then poll every 15 seconds
+    pull();
+    pollTimer = setInterval(pull, 15000);
+  } else {
+    setBanner('setup','Not connected — click ⚙ Manage Connection to set up Google Sheets');
+  }
+})();
+
+// ═══════════════════════════════════════════
+// PULL — read from Sheet via JSONP
+// Only replaces local data if Sheet version > local version
+// ═══════════════════════════════════════════
+function pull() {
+  if (!SHEET_URL) return;
+  // Don't pull if we just wrote (give write 8 seconds to land)
+  if (Date.now() - lastLocalWrite < 8000) return;
+
+  const cb = '_sc_' + Date.now();
+  let done = false;
+
+  const t = setTimeout(() => {
+    if (done) return;
+    done = true;
+    cleanup();
+    setBanner('warn','Sheet not responding — check Apps Script deployment · Retrying...');
+  }, 12000);
+
+  window[cb] = function(data) {
+    if (done) return;
+    done = true;
+    clearTimeout(t);
+    cleanup();
+    if (!data || !Array.isArray(data.rows)) {
+      setBanner('warn','Invalid response from Sheet');
+      return;
+    }
+    const sheetVer = parseInt(data.version)||0;
+    const localVer = parseInt(localStorage.getItem(VER_KEY))||0;
+    if (data.rows.length > 0 && sheetVer > localVer) {
+      // Sheet has genuinely newer data
+      rows = data.rows.map(normalizeRow);
+      if (data.target) { TARGET = parseInt(data.target)||21; localStorage.setItem(TARGET_KEY,TARGET); }
+      nid = rows.reduce((m,r)=>Math.max(m,parseInt(r.id)||0),999) + 1;
+      localStorage.setItem(VER_KEY, sheetVer);
+      render();
+    }
+    setBanner('ok','● Live · Last synced: ' + new Date().toLocaleTimeString());
+  };
+
+  function cleanup() {
+    delete window[cb];
+    const s = document.getElementById('_pull_script');
+    if (s) s.remove();
+  }
+
+  const s = document.createElement('script');
+  s.id  = '_pull_script';
+  s.onerror = function() {
+    if (done) return;
+    done = true;
+    clearTimeout(t);
+    cleanup();
+    setBanner('warn','Cannot reach Sheet — redeploy Apps Script with "Anyone" access');
+  };
+  s.src = SHEET_URL + '?action=read&callback=' + cb + '&t=' + Date.now();
+  document.head.appendChild(s);
+}
+
+// ═══════════════════════════════════════════
+// PUSH — write to Sheet (fire and forget)
+// ═══════════════════════════════════════════
+function push() {
+  if (!SHEET_URL) return;
+  lastLocalWrite = Date.now();
+  const ver = Date.now();
+  localStorage.setItem(VER_KEY, ver);
+  const payload = JSON.stringify({action:'write', rows, target:TARGET, version:ver});
+  fetch(SHEET_URL, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body:payload})
+    .catch(()=>{});
+}
+
+function syncNow() {
+  if (!SHEET_URL) { setBanner('setup','Not connected · Click ⚙ Manage Connection'); return; }
+  setBanner('connecting','Syncing...');
+  push();
+  setTimeout(()=>{ lastLocalWrite=0; pull(); }, 2000);
+}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+function normalizeRow(r) {
+  return {
+    id: parseInt(r.id)||nid++,
+    business:r.business||'', businessType:r.businessType||'',
+    address:r.address||'', zip:r.zip||'', phone:r.phone||'',
+    email:r.email||'', contact:r.contact||'', title:r.title||'',
+    mode:r.mode||'', initDate:r.initDate||'', lastDate:r.lastDate||'',
+    sessionConfirmed:r.sessionConfirmed||'', dateTime:r.dateTime||'',
+    targetLocation:r.targetLocation||'', volunteer:r.volunteer||'', notes:r.notes||''
+  };
+}
+
+function x(v){ return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function mc(v){ return v==='Walk-In'?'mode-walkin':v==='Phone'?'mode-phone':v==='Email'?'mode-email':'mode-none'; }
+function vc(v){ return v==='TBD'?'visit-tbd':v==='Yes'?'visit-yes':v==='No'?'visit-no':'visit-none'; }
+function btc(v){
+  if(!v) return 'bt-none';
+  if(v==='Coffee/Tea/Eatery') return 'bt-coffee';
+  if(v==='Bar/Restaurant')    return 'bt-bar';
+  if(v==='Health & Wellness') return 'bt-health';
+  if(v==='Community Center')  return 'bt-community';
+  if(v==='Event Space')       return 'bt-event';
+  return 'bt-other';
+}
+function tlc(v){ return v==='Yes'?'tl-yes':v==='No'?'tl-no':v==='Under Review'?'tl-review':'tl-none'; }
+
+function ddOpts(opts, val) {
+  return opts.map(o => `<option value="${o==='—'?'':o}" ${val===o?'selected':''}>${o}</option>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+let activeFilters = {};
+function applyFilters() {
+  activeFilters = {};
+  document.querySelectorAll('.filter-input,.filter-select').forEach(el => {
+    const v = el.value.trim().toLowerCase();
+    if (v) activeFilters[el.dataset.col] = v;
+  });
+  renderTable();
+}
+
+function render() { renderTable(); renderDashboard(); }
+
+function renderTable() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  const display = rows.filter(r => {
+    for (const [col,val] of Object.entries(activeFilters)) {
+      if (!String(r[col]||'').toLowerCase().includes(val)) return false;
+    }
+    return true;
+  });
+  if (!display.length) {
+    tbody.innerHTML = '<tr><td colspan="18" style="text-align:center;padding:24px;color:#999;font-style:italic">' +
+      (Object.keys(activeFilters).length ? 'No results match your filters.' : 'No entries.') + '</td></tr>';
+    return;
+  }
+  display.forEach((row,i) => {
+    const tr = document.createElement('tr');
+    tr.dataset.id = row.id;
+    tr.innerHTML = `
+      <td class="row-num col-freeze-num">${i+1}</td>
+      <td class="col-freeze-biz"><input class="cell-input" type="text" data-rid="${row.id}" data-f="business" value="${x(row.business)}" placeholder="Business name"></td>
+      <td><select class="dd ${btc(row.businessType)}" data-rid="${row.id}" data-f="businessType">
+        <option value="">— select —</option>
+        ${ddOpts(['Coffee/Tea/Eatery','Bar/Restaurant','Health & Wellness','Community Center','Event Space','Other'],row.businessType)}
+      </select></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="address" value="${x(row.address)}" placeholder="Address" style="min-width:130px"></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="zip" value="${x(row.zip)}" placeholder="Zip" style="min-width:80px"></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="phone" value="${x(row.phone)}" placeholder="Phone" style="min-width:106px"></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="email" value="${x(row.email)}" placeholder="Email" style="min-width:118px"></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="contact" value="${x(row.contact)}" placeholder="Name" style="min-width:100px"></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="title" value="${x(row.title)}" placeholder="Title" style="min-width:74px"></td>
+      <td><select class="dd ${mc(row.mode)}" data-rid="${row.id}" data-f="mode">
+        <option value="">— select —</option>
+        ${ddOpts(['Walk-In','Phone','Email'],row.mode)}
+      </select></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="initDate" value="${x(row.initDate)}" placeholder="MM/DD/YYYY" style="min-width:100px"></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="lastDate" value="${x(row.lastDate)}" placeholder="MM/DD/YYYY" style="min-width:100px"></td>
+      <td><select class="dd ${vc(row.sessionConfirmed)}" data-rid="${row.id}" data-f="sessionConfirmed">
+        <option value="">— select —</option>
+        ${ddOpts(['TBD','Yes','No'],row.sessionConfirmed)}
+      </select></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="dateTime" value="${x(row.dateTime)}" placeholder="Date &amp; Time" style="min-width:130px"></td>
+      <td><select class="dd ${tlc(row.targetLocation)}" data-rid="${row.id}" data-f="targetLocation">
+        <option value="">— select —</option>
+        ${ddOpts(['Yes','No','Under Review'],row.targetLocation)}
+      </select></td>
+      <td><input class="cell-input" type="text" data-rid="${row.id}" data-f="volunteer" value="${x(row.volunteer)}" placeholder="Vol." style="min-width:55px"></td>
+      <td><textarea class="cell-input" data-rid="${row.id}" data-f="notes" placeholder="Notes" style="min-width:270px;max-width:400px">${x(row.notes)}</textarea></td>
+      <td style="text-align:center;padding:3px 5px"><button class="del-btn" data-rid="${row.id}" title="Delete">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // Wire all inputs and selects by data-rid — never by position
+  tbody.querySelectorAll('input.cell-input,textarea.cell-input').forEach(el => {
+    el.addEventListener('change', onInput);
+    el.addEventListener('blur',   onInput);
+  });
+  tbody.querySelectorAll('select.dd').forEach(sel => {
+    sel.addEventListener('change', onSelect);
+  });
+  tbody.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      openDelModal(parseInt(this.dataset.rid,10));
+    });
+  });
+}
+
+// ═══════════════════════════════════════════
+// INPUT HANDLERS — bound by data-rid always
+// ═══════════════════════════════════════════
+function onInput(e) {
+  const el = e.target;
+  const rid = parseInt(el.dataset.rid,10);
+  const field = el.dataset.f;
+  if (!rid || !field) return;
+  const row = rows.find(r=>r.id===rid);
+  if (!row) return;
+  const newVal = el.value.trim();
+  if (row[field] === newVal) return;
+  row[field] = newVal;
+  renderDashboard();
+  push();
+}
+
+function onSelect(e) {
+  const sel = e.target;
+  const rid = parseInt(sel.dataset.rid,10);
+  const field = sel.dataset.f;
+  if (!rid || !field) return;
+  const row = rows.find(r=>r.id===rid);
+  if (!row) return;
+  row[field] = sel.value;
+  // Restyle the dropdown
+  if      (field==='mode')            sel.className = 'dd ' + mc(sel.value);
+  else if (field==='sessionConfirmed')sel.className = 'dd ' + vc(sel.value);
+  else if (field==='businessType')    sel.className = 'dd ' + btc(sel.value);
+  else if (field==='targetLocation')  sel.className = 'dd ' + tlc(sel.value);
+  renderDashboard();
+  push();
+}
+
+// ═══════════════════════════════════════════
+// ADD ROW
+// ═══════════════════════════════════════════
+function addRow() {
+  const newRow = {id:nid++, business:'', businessType:'', address:'', zip:'',
+    phone:'', email:'', contact:'', title:'', mode:'', initDate:'', lastDate:'',
+    sessionConfirmed:'', dateTime:'', targetLocation:'', volunteer:'', notes:''};
+  rows.push(newRow);
+  // Append single row to DOM — never rebuild entire table
+  const tbody = document.getElementById('tbody');
+  // Remove empty state row if present
+  if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
+  const rowNum = rows.length;
+  const tr = document.createElement('tr');
+  tr.dataset.id = newRow.id;
+  tr.innerHTML = `
+    <td class="row-num col-freeze-num">${rowNum}</td>
+    <td class="col-freeze-biz"><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="business" value="" placeholder="Business name"></td>
+    <td><select class="dd bt-none" data-rid="${newRow.id}" data-f="businessType">
+      <option value="">— select —</option>
+      <option>Coffee/Tea/Eatery</option><option>Bar/Restaurant</option>
+      <option>Health &amp; Wellness</option><option>Community Center</option>
+      <option>Event Space</option><option>Other</option>
+    </select></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="address" value="" placeholder="Address" style="min-width:130px"></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="zip" value="" placeholder="Zip" style="min-width:80px"></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="phone" value="" placeholder="Phone" style="min-width:106px"></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="email" value="" placeholder="Email" style="min-width:118px"></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="contact" value="" placeholder="Name" style="min-width:100px"></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="title" value="" placeholder="Title" style="min-width:74px"></td>
+    <td><select class="dd mode-none" data-rid="${newRow.id}" data-f="mode">
+      <option value="">— select —</option><option>Walk-In</option><option>Phone</option><option>Email</option>
+    </select></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="initDate" value="" placeholder="MM/DD/YYYY" style="min-width:100px"></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="lastDate" value="" placeholder="MM/DD/YYYY" style="min-width:100px"></td>
+    <td><select class="dd visit-none" data-rid="${newRow.id}" data-f="sessionConfirmed">
+      <option value="">— select —</option><option>TBD</option><option>Yes</option><option>No</option>
+    </select></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="dateTime" value="" placeholder="Date &amp; Time" style="min-width:130px"></td>
+    <td><select class="dd tl-none" data-rid="${newRow.id}" data-f="targetLocation">
+      <option value="">— select —</option><option>Yes</option><option>No</option><option>Under Review</option>
+    </select></td>
+    <td><input class="cell-input" type="text" data-rid="${newRow.id}" data-f="volunteer" value="" placeholder="Vol." style="min-width:55px"></td>
+    <td><textarea class="cell-input" data-rid="${newRow.id}" data-f="notes" placeholder="Notes" style="min-width:270px;max-width:400px"></textarea></td>
+    <td style="text-align:center;padding:3px 5px"><button class="del-btn" data-rid="${newRow.id}" title="Delete">✕</button></td>`;
+  tbody.appendChild(tr);
+  tr.querySelectorAll('input.cell-input,textarea.cell-input').forEach(el=>{
+    el.addEventListener('change',onInput); el.addEventListener('blur',onInput);
+  });
+  tr.querySelectorAll('select.dd').forEach(sel=>sel.addEventListener('change',onSelect));
+  tr.querySelector('.del-btn').addEventListener('click',function(e){
+    e.stopPropagation(); openDelModal(parseInt(this.dataset.rid,10));
+  });
+  tr.scrollIntoView({behavior:'smooth',block:'nearest'});
+  tr.querySelector('[data-f="business"]').focus();
+  renderDashboard();
+  push();
+}
+
+// ═══════════════════════════════════════════
+// DELETE
+// ═══════════════════════════════════════════
+let pendingDelId = null;
+function openDelModal(id){ pendingDelId=id; openModal('del-modal'); }
+document.getElementById('del-confirm-btn').addEventListener('click',function(){
+  if (pendingDelId===null) return;
+  rows = rows.filter(r=>r.id!==pendingDelId);
+  pendingDelId = null;
+  closeModal('del-modal');
+  renderTable();
+  renderDashboard();
+  push();
+});
+
+// ═══════════════════════════════════════════
+// CLEAR ALL
+// ═══════════════════════════════════════════
+function confirmClear(){
+  if(confirm('Delete ALL entries permanently? This cannot be undone.')){
+    rows=[]; renderTable(); renderDashboard(); push();
+  }
+}
+
+// ═══════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════
+function renderDashboard(){
+  const now = new Date();
+  const daysLeft = Math.max(0,Math.ceil((CAMPAIGN_END-now)/86400000));
+  const totalBiz  = rows.filter(r=>r.business.trim()!=='').length;
+  const totalSched= rows.filter(r=>r.sessionConfirmed==='Yes').length;
+  const contacted = rows.filter(r=>['Walk-In','Phone','Email'].includes(r.mode)).length;
+  const notContacted = rows.filter(r=>!r.mode).length;
+  const pctC  = totalBiz?Math.round(contacted/totalBiz*100):0;
+  const pctNC = totalBiz?Math.round(notContacted/totalBiz*100):0;
+  const pctT  = Math.round(totalSched/TARGET*100);
+
+  const gc=(v,lo,hi)=>v>=hi?'t-green':v>=lo?'t-yellow':'t-red';
+  const bc=(v,lo,hi)=>v>=hi?'#27ae60':v>=lo?'#f0a500':'#e03c3c';
+  const dCls=daysLeft>=30?'t-green':daysLeft>=10?'t-yellow':'t-red';
+  const dBc =daysLeft>=30?'#27ae60':daysLeft>=10?'#f0a500':'#e03c3c';
+  const ncCls=pctNC<45?'t-green':pctNC<=75?'t-yellow':'t-red';
+  const ncBc =pctNC<45?'#27ae60':pctNC<=75?'#f0a500':'#e03c3c';
+  const TCD=Math.ceil((CAMPAIGN_END-new Date('2026-05-09'))/86400000);
+  const pBar=t=>t!==null?`<div class="progress-wrap"><div class="progress-bar" style="width:${Math.min(100,t)}%;background:${t>=70?'#27ae60':t>=40?'#f0a500':'#e03c3c'}"></div></div>`:'';
+
+  document.getElementById('dashboard').innerHTML=[
+    {l:'Days Remaining',v:daysLeft,s:'until June 12',cls:dCls,bar:Math.min(100,Math.round((1-daysLeft/TCD)*100)),bc:dBc},
+    {l:'Goal For Sessions',v:'INPUT',s:'Click to edit',cls:'t-purple',bar:null},
+    {l:'Total Sessions',v:totalSched,s:'Confirmed = Yes',cls:gc(totalSched,Math.floor(TARGET*.7),TARGET),bar:Math.min(100,pctT),bc:bc(totalSched,Math.floor(TARGET*.7),TARGET)},
+    {l:'% of Target',v:pctT+'%',s:totalSched>=TARGET?'Goal reached!':TARGET-totalSched+' to go',cls:pctT>=100?'t-green':pctT>=70?'t-yellow':'t-red',bar:Math.min(100,pctT),bc:pctT>=100?'#27ae60':pctT>=70?'#f0a500':'#e03c3c'},
+    {l:'Total Businesses',v:totalBiz,s:'in tracker',cls:'t-purple',bar:null},
+    {l:'% Contacted',v:pctC+'%',s:contacted+' of '+totalBiz,cls:gc(pctC,40,70),bar:pctC,bc:bc(pctC,40,70)},
+    {l:'% Not Contacted',v:pctNC+'%',s:notContacted+' of '+totalBiz,cls:ncCls,bar:pctNC,bc:ncBc}
+  ].map(t=>`<div class="tile ${t.cls}">
+    <div class="tile-label">${t.l}</div>
+    <div class="tile-value">${t.v==='INPUT'?`<input class="tile-target-input" type="number" value="${TARGET}" min="1" max="999" onchange="updateTarget(this.value)">`:t.v}</div>
+    <div class="tile-sub">${t.s}</div>
+    ${t.bar!==null?`<div class="progress-wrap"><div class="progress-bar" style="width:${Math.min(100,t.bar)}%;background:${t.bc}"></div></div>`:''}
+  </div>`).join('');
+}
+
+function updateTarget(v){
+  const n=parseInt(v,10);
+  if(n>0){TARGET=n;localStorage.setItem(TARGET_KEY,n);renderDashboard();}
+}
+
+// ═══════════════════════════════════════════
+// BANNER
+// ═══════════════════════════════════════════
+function setBanner(state,msg){
+  const b=document.getElementById('sync-banner');
+  const d=document.getElementById('sync-dot');
+  const t=document.getElementById('sync-text');
+  b.className='sync-banner sync-'+state;
+  d.className='sync-dot '+(state==='ok'?'green':state==='warn'?'yellow':state==='err'?'red':'purple');
+  t.textContent=msg;
+}
+
+// ═══════════════════════════════════════════
+// EXPORT CSV
+// ═══════════════════════════════════════════
+function exportCSV(){
+  const cols=['Business Name','Business Type','Address','Zip','Phone','Email','Contact Name','Title',
+    'Mode of Contact','Initial Contact Date','Last Contact Date','Session Confirmed',
+    'Session Date & Time','Target Location','Volunteer','Notes'];
+  const fs=['business','businessType','address','zip','phone','email','contact','title',
+    'mode','initDate','lastDate','sessionConfirmed','dateTime','targetLocation','volunteer','notes'];
+  const lines=[cols.join(',')];
+  rows.forEach(r=>lines.push(fs.map(f=>`"${String(r[f]||'').replace(/"/g,'""')}"`).join(',')));
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));
+  a.download='SLICES_Tracker.csv'; a.click();
+}
+
+// ═══════════════════════════════════════════
+// MODAL HELPERS
+// ═══════════════════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',function(e){ if(e.target===this) this.classList.remove('open'); }));
+
+// ═══════════════════════════════════════════
+// SHEETS CONNECTION MANAGEMENT
+// ═══════════════════════════════════════════
+function openModal(id){
+  if(id==='sheets-modal') document.getElementById('sheet-url-input').value=localStorage.getItem('slices_custom_url')||'';
+  document.getElementById(id).classList.add('open');
+}
+function saveSheetURL(){
+  const v=document.getElementById('sheet-url-input').value.trim();
+  if(v) localStorage.setItem('slices_custom_url',v);
+  closeModal('sheets-modal');
+}
+function clearSheetURL(){ localStorage.removeItem('slices_custom_url'); closeModal('sheets-modal'); }
+
+function copyScript(){
+  const code=document.getElementById('apps-script-code').innerText;
+  navigator.clipboard.writeText(code).then(()=>{
+    const b=document.getElementById('copy-btn');
+    b.textContent='✓ Copied!'; b.style.background='#27ae60'; b.style.color='#fff';
+    setTimeout(()=>{b.textContent='📋 Copy Code to Clipboard';b.style.background='';b.style.color='';},2500);
+  }).catch(()=>{ const ta=document.createElement('textarea'); ta.value=code; ta.style.cssText='position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('Code copied!'); });
+}
+
+// Countdown ticker
+setTimeout(function tick(){ renderDashboard(); setTimeout(tick,60000); },60000);
+
+</script>
+<iframe name="_sync_iframe" style="display:none"></iframe>
+</body>
+</html>

@@ -242,7 +242,7 @@ function doGet(e) {
       </div>
       <div class="sync-banner sync-setup" id="sync-banner">
         <span class="sync-dot purple" id="sync-dot"></span>
-        <span id="sync-text">Initializing...</span>
+        <span id="sync-text">Loading tracker...</span>
         <span class="sync-link" onclick="openModal('sheets-modal')">⚙ Manage Connection</span>
       </div>
       <div class="dashboard" id="dashboard"></div>
@@ -430,21 +430,27 @@ function makeSeedRows() {
 // ═══════════════════════════════════════════
 // STARTUP — load then connect
 // ═══════════════════════════════════════════
-(function init() {
-  // Always start with SEED data so page is never blank
+function init() {
+  // Always load SEED data first — page is never blank
   rows = makeSeedRows();
   nid  = 1000 + rows.length;
   render();
 
   if (SHEET_URL) {
     setBanner('connecting','Connecting to Google Sheets...');
-    // Pull immediately, then poll every 15 seconds
     pull();
     pollTimer = setInterval(pull, 15000);
   } else {
-    setBanner('setup','Not connected — click ⚙ Manage Connection to set up Google Sheets');
+    setBanner('setup','Not connected — click ⚙ Manage Connection');
   }
-})();
+}
+
+// Run on DOMContentLoaded to guarantee DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 
 // ═══════════════════════════════════════════
 // PULL — read from Sheet via JSONP
